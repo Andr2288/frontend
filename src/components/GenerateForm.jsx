@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { axiosInstance } from "../lib/axios";
+import toast from "react-hot-toast";
 
 const GenerateForm = ({ onGenerated }) => {
     const [count, setCount] = useState(100);
@@ -8,17 +9,36 @@ const GenerateForm = ({ onGenerated }) => {
 
     const handleGenerate = async () => {
         if (count < 1 || count > 100000) {
-            alert("Count must be between 1 and 100,000");
+            toast.error("Count must be between 1 and 100,000");
             return;
         }
 
         setLoading(true);
+        const loadingToast = toast.loading("Generating SMS messages...");
+
         try {
             const response = await axiosInstance.post("/sms/generate", { count });
+            toast.success(`Successfully generated ${response.data.count} SMS messages!`, {
+                id: loadingToast,
+            });
             onGenerated(response.data);
         } catch (error) {
             console.error("Error generating SMS:", error);
-            alert("Failed to generate SMS");
+
+            if (error.code === "ERR_NETWORK") {
+                toast.error("Cannot connect to server. Please check if Service A is running.", {
+                    id: loadingToast,
+                    duration: 6000,
+                });
+            } else if (error.response?.status === 500) {
+                toast.error("Server error. Please check the database connection.", {
+                    id: loadingToast,
+                });
+            } else {
+                toast.error(error.response?.data?.message || "Failed to generate SMS", {
+                    id: loadingToast,
+                });
+            }
         } finally {
             setLoading(false);
         }

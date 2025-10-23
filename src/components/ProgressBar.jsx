@@ -1,24 +1,48 @@
 import { useEffect, useState } from "react";
-import { Activity, CheckCircle, XCircle } from "lucide-react";
+import { Activity, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { axiosInstance } from "../lib/axios";
+import toast from "react-hot-toast";
 
 const ProgressBar = ({ runId, channel }) => {
     const [metrics, setMetrics] = useState(null);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
         if (!runId) return;
+
+        let errorCount = 0;
+        const MAX_ERRORS = 3;
 
         const fetchMetrics = async () => {
             try {
                 const response = await axiosInstance.get(`/sms/metrics/${runId}`);
                 setMetrics(response.data);
+                setError(false);
+                errorCount = 0; // Reset error count on success
 
                 // Stop polling when completed
                 if (response.data.isCompleted) {
                     clearInterval(interval);
+                    toast.success("Processing completed!", { duration: 3000 });
                 }
-            } catch (error) {
-                console.error("Error fetching metrics:", error);
+            } catch (err) {
+                console.error("Error fetching metrics:", err);
+                errorCount++;
+
+                if (errorCount >= MAX_ERRORS) {
+                    setError(true);
+                    clearInterval(interval);
+
+                    if (err.code === "ERR_NETWORK") {
+                        toast.error("Lost connection to Service B. Please check if it's running.", {
+                            duration: 6000,
+                        });
+                    } else {
+                        toast.error("Failed to fetch progress. Please refresh the page.", {
+                            duration: 5000,
+                        });
+                    }
+                }
             }
         };
 
@@ -30,6 +54,22 @@ const ProgressBar = ({ runId, channel }) => {
 
         return () => clearInterval(interval);
     }, [runId]);
+
+    if (error) {
+        return (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                <div className="flex items-center space-x-3">
+                    <AlertCircle className="w-6 h-6 text-red-600" />
+                    <div>
+                        <h3 className="font-semibold text-red-900">Connection Error</h3>
+                        <p className="text-sm text-red-700 mt-1">
+                            Cannot connect to Service B. Please check if the service is running.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (!metrics) {
         return (

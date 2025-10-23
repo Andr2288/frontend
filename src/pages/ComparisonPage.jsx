@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, TrendingUp, Award } from "lucide-react";
 import { axiosInstance } from "../lib/axios";
+import toast from "react-hot-toast";
 
 const ComparisonPage = () => {
     const [results, setResults] = useState([]);
@@ -11,8 +12,21 @@ const ComparisonPage = () => {
         try {
             const response = await axiosInstance.get("/sms/results");
             setResults(response.data);
+            toast.success("Results refreshed!", { duration: 2000 });
         } catch (error) {
             console.error("Error fetching results:", error);
+
+            if (error.code === "ERR_NETWORK") {
+                toast.error("Cannot connect to server. Please check if Service A is running.", {
+                    duration: 6000,
+                });
+            } else if (error.response?.status === 500) {
+                toast.error("Server error. Please check Service B connection.", {
+                    duration: 5000,
+                });
+            } else {
+                toast.error("Failed to fetch results. Please try again.");
+            }
         } finally {
             setLoading(false);
         }
